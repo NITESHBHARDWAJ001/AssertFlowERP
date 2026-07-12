@@ -145,3 +145,4 @@ Two organizations, each with their own Org Admin, are isolated from each other p
 by server-side JWT-derived scoping — no client input can cross tenant boundaries. To
 verify: create two orgs as Super Admin, log in as each org's admin in turn, and confirm
 neither can see the other's departments/employees/activity log.
+ . 
