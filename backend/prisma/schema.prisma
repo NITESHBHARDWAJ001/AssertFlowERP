@@ -111,6 +111,14 @@ model Organization {
   assetTagPrefix   String @default("AST")
   assetTagSequence Int    @default(0)
 
+  // Branding
+  logoUrl String?
+
+  // Booking/Maintenance rules: when false, the corresponding request
+  // auto-approves on creation instead of waiting on a manager decision.
+  bookingRequiresApproval     Boolean @default(true)
+  maintenanceRequiresApproval Boolean @default(true)
+
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
   deletedAt DateTime?

@@ -60,6 +60,21 @@ export const navItems: NavItem[] = [
     roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
   },
   {
+    label: "Reports",
+    path: "/reports",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD],
+  },
+  {
+    label: "Analytics",
+    path: "/analytics",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD],
+  },
+  {
+    label: "Settings",
+    path: "/settings",
+    roles: [Role.ORG_ADMIN],
+  },
+  {
     label: "Resources",
     path: "/resources",
     roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER],

@@ -19,6 +19,10 @@ import bookingRoutes from "./modules/bookings/booking.routes";
 import maintenanceRoutes from "./modules/maintenance/maintenance.routes";
 import auditRoutes from "./modules/audits/audit.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
+import reportRoutes from "./modules/reports/report.routes";
+import analyticsRoutes from "./modules/analytics/analytics.routes";
+import settingsRoutes from "./modules/settings/settings.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
 const app = express();
 
@@ -54,6 +58,10 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/audits", auditRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);

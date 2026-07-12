@@ -80,6 +80,12 @@ export async function createBooking(
 
   await assertNoConflict(organizationId, input.resourceId, input.startTime, input.endTime);
 
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { bookingRequiresApproval: true },
+  });
+  const autoApprove = org?.bookingRequiresApproval === false;
+
   const booking = await prisma.booking.create({
     data: {
       organizationId,
@@ -88,6 +94,8 @@ export async function createBooking(
       purpose: input.purpose,
       startTime: input.startTime,
       endTime: input.endTime,
+      status: autoApprove ? BookingStatus.APPROVED : BookingStatus.PENDING,
+      approvedAt: autoApprove ? new Date() : undefined,
     },
     include: bookingInclude,
   });

@@ -82,6 +82,21 @@ export async function createRequest(
     metadata: { asset: asset.assetTag },
   });
 
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { maintenanceRequiresApproval: true },
+  });
+  if (org?.maintenanceRequiresApproval === false) {
+    return decideRequest(
+      organizationId,
+      { id: actorUserId, role: Role.EMPLOYEE, organizationId },
+      request.id,
+      true,
+      undefined,
+      ipAddress
+    );
+  }
+
   return request;
 }
 

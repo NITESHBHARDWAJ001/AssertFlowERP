@@ -13,6 +13,9 @@ const LABELS: Record<string, string> = {
   resources: "Resources",
   maintenance: "Maintenance",
   audits: "Audits",
+  reports: "Reports",
+  analytics: "Analytics",
+  settings: "Settings",
 };
 
 export function Breadcrumbs() {

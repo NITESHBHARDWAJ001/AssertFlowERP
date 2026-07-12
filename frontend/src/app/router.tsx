@@ -18,6 +18,9 @@ import { BookingsPage } from "../features/bookings/BookingsPage";
 import { MaintenancePage } from "../features/maintenance/MaintenancePage";
 import { AuditCyclesPage } from "../features/audits/AuditCyclesPage";
 import { AuditCycleDetailPage } from "../features/audits/AuditCycleDetailPage";
+import { ReportsPage } from "../features/reports/ReportsPage";
+import { AnalyticsPage } from "../features/analytics/AnalyticsPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 import { Role } from "../types/role";
 
 export const router = createBrowserRouter([
@@ -42,6 +45,7 @@ export const router = createBrowserRouter([
               { path: "/departments", element: <DepartmentsPage /> },
               { path: "/employees", element: <EmployeesPage /> },
               { path: "/asset-categories", element: <AssetCategoriesPage /> },
+              { path: "/settings", element: <SettingsPage /> },
             ],
           },
           {
@@ -66,7 +70,11 @@ export const router = createBrowserRouter([
           },
           {
             element: <ProtectedRoute allowedRoles={[Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD]} />,
-            children: [{ path: "/activity-log", element: <ActivityLogPage /> }],
+            children: [
+              { path: "/activity-log", element: <ActivityLogPage /> },
+              { path: "/reports", element: <ReportsPage /> },
+              { path: "/analytics", element: <AnalyticsPage /> },
+            ],
           },
         ],
       },
