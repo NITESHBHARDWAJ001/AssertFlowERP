@@ -5,6 +5,8 @@ employees. This is the base layer — every future module (Assets, Bookings, Mai
 Audits, Reports, Notifications, Analytics) plugs into the same tenant-scoping and RBAC
 middleware established here.
 
+## Deployed linked = https://assert-flow-erp.vercel.app/
+
 ## Architecture
 
 - **Backend**: Node.js, Express, TypeScript, Prisma ORM, PostgreSQL. Layered as
