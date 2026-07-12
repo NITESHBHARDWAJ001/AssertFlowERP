@@ -5,13 +5,56 @@
 @layer base {
   html {
     @apply antialiased;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-paper text-ink dark:bg-night dark:text-slate-100;
   }
 
   #root {
     @apply min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer utilities {
+  /* Tag-manifest motif: a dotted "perforation" divider, as if a section could
+     be torn off along it. Used between major landing-page sections. */
+  .divider-perforated {
+    border-top: 1px dashed theme("colors.mist");
+  }
+  :root[data-theme="dark"] .divider-perforated,
+  .dark .divider-perforated {
+    border-top-color: theme("colors.brand.800");
+  }
+
+  /* Small round "punch hole" accent, echoing a physical inventory tag. */
+  .tag-hole::before {
+    content: "";
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.18;
+  }
+
+  .bg-blueprint {
+    background-image: radial-gradient(currentColor 1px, transparent 1px);
+    background-size: 22px 22px;
   }
 }

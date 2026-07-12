@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { AppLayout } from "../components/layout/AppLayout";
+import { LandingPage } from "../features/marketing/LandingPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { SignupPage } from "../features/auth/SignupPage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
@@ -25,7 +26,7 @@ import { SettingsPage } from "../features/settings/SettingsPage";
 import { Role } from "../types/role";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/dashboard" replace /> },
+  { path: "/", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },

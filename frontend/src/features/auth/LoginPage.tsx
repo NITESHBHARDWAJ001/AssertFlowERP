@@ -39,8 +39,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-paper px-4 dark:bg-night">
+      <div
+        className="bg-blueprint pointer-events-none absolute inset-0 text-brand-900/[0.05] dark:text-brand-300/[0.06]"
+        aria-hidden="true"
+      />
+      <div className="relative w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-brand-700 dark:text-brand-400">AssetFlow</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sign in to your account</p>

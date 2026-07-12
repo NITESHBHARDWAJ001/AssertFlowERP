@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import clsx from "clsx";
 import { getNavItemsForRole } from "../../lib/navConfig";
 import { useAuth } from "../../features/auth/useAuth";
+import { Logo } from "../ui/Logo";
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -17,9 +18,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <div className="flex h-14 shrink-0 items-center border-b border-slate-200 px-5 dark:border-slate-800">
-        <span className="text-lg font-semibold text-brand-700 dark:text-brand-400">AssetFlow</span>
+        <Logo />
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {items.map((item) => (
           <NavLink
             key={item.path}
@@ -27,14 +28,31 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               clsx(
-                "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+                  ? "bg-brand-50 text-brand-700 dark:bg-brand-900/25 dark:text-brand-300"
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               )
             }
           >
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={clsx(
+                    "absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand-600 transition-opacity",
+                    isActive ? "opacity-100" : "opacity-0"
+                  )}
+                  aria-hidden="true"
+                />
+                <item.icon
+                  className={clsx(
+                    "h-[18px] w-[18px] shrink-0",
+                    isActive ? "text-brand-600 dark:text-brand-400" : "text-slate-400 group-hover:text-slate-500"
+                  )}
+                />
+                {item.label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -60,7 +78,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       >
         <div
           className={clsx(
-            "absolute inset-0 bg-slate-900/50 transition-opacity",
+            "absolute inset-0 bg-ink/50 transition-opacity",
             mobileOpen ? "opacity-100" : "opacity-0"
           )}
           onClick={onCloseMobile}
