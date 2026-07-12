@@ -10,12 +10,13 @@ import * as assetService from "./asset.service";
 
 export const listAssets = asyncHandler(async (req: Request, res: Response) => {
   const organizationId = requireOrganization(req);
-  const { search, categoryId, status, departmentId } = req.query as Record<string, string | undefined>;
+  const { search, categoryId, status, departmentId, location } = req.query as Record<string, string | undefined>;
   const assets = await assetService.listAssets(organizationId, req.user!, {
     search,
     categoryId,
     status: status as AssetStatus | undefined,
     departmentId,
+    location,
   });
   return sendSuccess(res, assets);
 });

@@ -37,6 +37,19 @@ function formatRange(start: string, end: string) {
     : `${s.toLocaleString()} – ${e.toLocaleString()}`;
 }
 
+// Derived purely from the time window, layered on top of the workflow
+// status (Pending/Approved/Rejected/Cancelled) rather than replacing it -
+// only an approved booking has a meaningful "when" to show.
+function temporalLabel(booking: Booking): { label: string; tone: string } | null {
+  if (booking.status !== "APPROVED") return null;
+  const now = new Date();
+  const start = new Date(booking.startTime);
+  const end = new Date(booking.endTime);
+  if (now < start) return { label: "Upcoming", tone: "text-brand-600 dark:text-brand-400" };
+  if (now >= start && now < end) return { label: "Ongoing", tone: "text-emerald-600 dark:text-emerald-400" };
+  return { label: "Completed", tone: "text-slate-400 dark:text-slate-500" };
+}
+
 export function BookingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -155,7 +168,12 @@ export function BookingsPage() {
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatRange(b.startTime, b.endTime)}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{b.purpose ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <BookingStatusBadge status={b.status} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <BookingStatusBadge status={b.status} />
+                        {temporalLabel(b) && (
+                          <span className={`text-xs font-medium ${temporalLabel(b)!.tone}`}>{temporalLabel(b)!.label}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">

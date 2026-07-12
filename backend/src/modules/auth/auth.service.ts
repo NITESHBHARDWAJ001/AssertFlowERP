@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { ApiError } from "../../utils/ApiError";
 import { comparePassword, hashPassword, hashToken, randomToken } from "../../utils/hash";
@@ -19,27 +20,16 @@ interface LoginResult {
   };
 }
 
-export async function login(email: string, password: string, ipAddress?: string): Promise<LoginResult> {
-  const user = await prisma.user.findFirst({
-    where: { email, deletedAt: null },
-  });
+interface SessionUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  organizationId: string | null;
+}
 
-  if (!user || !user.isActive) {
-    throw ApiError.unauthorized("Invalid email or password");
-  }
-
-  const validPassword = await comparePassword(password, user.passwordHash);
-  if (!validPassword) {
-    throw ApiError.unauthorized("Invalid email or password");
-  }
-
-  if (user.organizationId) {
-    const org = await prisma.organization.findUnique({ where: { id: user.organizationId } });
-    if (!org || org.status === "SUSPENDED" || org.deletedAt) {
-      throw ApiError.forbidden("Your organization account is suspended");
-    }
-  }
-
+async function issueSession(user: SessionUser, action: "LOGIN" | "SIGNUP", ipAddress?: string): Promise<LoginResult> {
   const accessToken = signAccessToken({
     sub: user.id,
     role: user.role,
@@ -64,16 +54,38 @@ export async function login(email: string, password: string, ipAddress?: string)
   await recordActivity({
     organizationId: user.organizationId,
     userId: user.id,
-    action: "LOGIN",
+    action,
     entityType: "User",
     entityId: user.id,
     ipAddress,
   });
 
-  return {
-    accessToken,
-    refreshToken,
-    user: {
+  return { accessToken, refreshToken, user };
+}
+
+export async function login(email: string, password: string, ipAddress?: string): Promise<LoginResult> {
+  const user = await prisma.user.findFirst({
+    where: { email, deletedAt: null },
+  });
+
+  if (!user || !user.isActive) {
+    throw ApiError.unauthorized("Invalid email or password");
+  }
+
+  const validPassword = await comparePassword(password, user.passwordHash);
+  if (!validPassword) {
+    throw ApiError.unauthorized("Invalid email or password");
+  }
+
+  if (user.organizationId) {
+    const org = await prisma.organization.findUnique({ where: { id: user.organizationId } });
+    if (!org || org.status === "SUSPENDED" || org.deletedAt) {
+      throw ApiError.forbidden("Your organization account is suspended");
+    }
+  }
+
+  return issueSession(
+    {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -81,7 +93,56 @@ export async function login(email: string, password: string, ipAddress?: string)
       role: user.role,
       organizationId: user.organizationId,
     },
-  };
+    "LOGIN",
+    ipAddress
+  );
+}
+
+interface SignupInput {
+  organizationSlug: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+}
+
+// Self-service signup always creates a plain Employee tied to a specific,
+// already-existing organization (identified by its public slug, never a raw
+// ID) - there is no way for a signup to self-elevate role or pick an org
+// that doesn't already exist. Admin-driven account creation (see
+// user.service.ts) remains the only path to any other role.
+export async function signup(input: SignupInput, ipAddress?: string): Promise<LoginResult> {
+  const org = await prisma.organization.findFirst({ where: { slug: input.organizationSlug, deletedAt: null } });
+  if (!org) throw ApiError.badRequest("No organization found for that slug");
+  if (org.status === "SUSPENDED") throw ApiError.forbidden("This organization's account is suspended");
+
+  const existing = await prisma.user.findFirst({ where: { email: input.email, deletedAt: null } });
+  if (existing) throw ApiError.badRequest("An account with that email already exists");
+
+  const passwordHash = await hashPassword(input.password);
+  const user = await prisma.user.create({
+    data: {
+      organizationId: org.id,
+      email: input.email,
+      passwordHash,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      role: Role.EMPLOYEE,
+    },
+  });
+
+  return issueSession(
+    {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      organizationId: user.organizationId,
+    },
+    "SIGNUP",
+    ipAddress
+  );
 }
 
 export async function refresh(token: string): Promise<{ accessToken: string; refreshToken: string }> {

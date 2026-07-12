@@ -3,6 +3,7 @@ import { prisma } from "../../config/prisma";
 import { ApiError } from "../../utils/ApiError";
 import { recordActivity } from "../activity-logs/activityLog.service";
 import { notify } from "../notifications/notification.service";
+import { isTransitionAllowed } from "../assets/asset.stateMachine";
 import type { AuthUser } from "../../middleware/authenticate";
 
 const cycleInclude = {
@@ -158,11 +159,35 @@ export async function verifyItem(
     metadata: { asset: updated.asset.assetTag, status },
   });
 
+  if (status === AuditItemStatus.MISSING || status === AuditItemStatus.DAMAGED) {
+    const recipients = await prisma.user.findMany({
+      where: { organizationId, deletedAt: null, role: { in: [Role.ORG_ADMIN, Role.ASSET_MANAGER] } },
+      select: { id: true },
+    });
+    const label = status === AuditItemStatus.MISSING ? "missing" : "damaged";
+    await Promise.all(
+      recipients.map((recipient) =>
+        notify({
+          organizationId,
+          userId: recipient.id,
+          type: "AUDIT_DISCREPANCY",
+          title: `Asset marked ${label} during audit`,
+          message: `${updated.asset.assetTag} was marked ${label} during "${cycle.name}".`,
+          entityType: "AuditItem",
+          entityId: itemId,
+        })
+      )
+    );
+  }
+
   return updated;
 }
 
 export async function closeCycle(organizationId: string, actorUserId: string, id: string, ipAddress?: string) {
-  const cycle = await prisma.auditCycle.findFirst({ where: { id, organizationId }, include: { items: true } });
+  const cycle = await prisma.auditCycle.findFirst({
+    where: { id, organizationId },
+    include: { items: { include: { asset: { select: { id: true, status: true, assetTag: true } } } } },
+  });
   if (!cycle) throw ApiError.notFound("Audit cycle not found");
   if (cycle.status === AuditCycleStatus.CLOSED) throw ApiError.badRequest("This audit cycle is already closed");
 
@@ -171,10 +196,36 @@ export async function closeCycle(organizationId: string, actorUserId: string, id
     throw ApiError.badRequest(`${pendingCount} asset(s) still need to be verified before this audit can be closed`);
   }
 
-  const updated = await prisma.auditCycle.update({
-    where: { id },
-    data: { status: AuditCycleStatus.CLOSED, closedAt: new Date() },
-    include: cycleInclude,
+  // Confirmed-missing assets are written off as Lost so the fleet count stays
+  // accurate; only applied where the asset's current status still permits it
+  // (e.g. it hasn't since been retired/disposed by some other action).
+  const missingItems = cycle.items.filter(
+    (i) => i.status === AuditItemStatus.MISSING && isTransitionAllowed(i.asset.status, AssetStatus.LOST)
+  );
+
+  const updated = await prisma.$transaction(async (tx) => {
+    for (const item of missingItems) {
+      await tx.asset.update({
+        where: { id: item.asset.id },
+        data: { status: AssetStatus.LOST, currentHolderId: null },
+      });
+      await tx.assetHistory.create({
+        data: {
+          assetId: item.asset.id,
+          action: "MARKED_LOST_ON_AUDIT_CLOSE",
+          fromStatus: item.asset.status,
+          toStatus: AssetStatus.LOST,
+          note: `Confirmed missing during audit cycle "${cycle.name}"`,
+          performedById: actorUserId,
+        },
+      });
+    }
+
+    return tx.auditCycle.update({
+      where: { id },
+      data: { status: AuditCycleStatus.CLOSED, closedAt: new Date() },
+      include: cycleInclude,
+    });
   });
 
   await recordActivity({
@@ -184,6 +235,7 @@ export async function closeCycle(organizationId: string, actorUserId: string, id
     entityType: "AuditCycle",
     entityId: id,
     ipAddress,
+    metadata: { assetsMarkedLost: missingItems.length },
   });
 
   return updated;

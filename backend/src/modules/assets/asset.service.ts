@@ -23,6 +23,8 @@ interface CreateAssetInput {
   purchaseDate?: Date;
   purchaseCost?: number;
   warrantyExpiry?: Date;
+  location?: string;
+  condition?: string;
   notes?: string;
   currentDepartmentId?: string;
   customFields?: Record<string, unknown>;
@@ -48,6 +50,7 @@ interface ListFilters {
   categoryId?: string;
   status?: AssetStatus;
   departmentId?: string;
+  location?: string;
 }
 
 // Visibility is role-scoped: Employees only ever see assets currently held
@@ -67,6 +70,7 @@ export async function listAssets(organizationId: string, requestingUser: AuthUse
 
   if (filters.categoryId) where.categoryId = filters.categoryId;
   if (filters.status) where.status = filters.status;
+  if (filters.location) where.location = { contains: filters.location, mode: "insensitive" };
   if (filters.search) {
     where.OR = [
       { name: { contains: filters.search, mode: "insensitive" } },
@@ -115,6 +119,8 @@ export async function createAsset(
       purchaseDate: input.purchaseDate,
       purchaseCost: input.purchaseCost,
       warrantyExpiry: input.warrantyExpiry,
+      location: input.location,
+      condition: input.condition,
       notes: input.notes,
       currentDepartmentId: input.currentDepartmentId,
       customFields: input.customFields as Prisma.InputJsonValue | undefined,
@@ -156,6 +162,8 @@ interface UpdateAssetInput {
   purchaseDate?: Date;
   purchaseCost?: number;
   warrantyExpiry?: Date;
+  location?: string;
+  condition?: string;
   notes?: string;
   customFields?: Record<string, unknown>;
 }
@@ -182,6 +190,8 @@ export async function updateAsset(
       purchaseDate: input.purchaseDate,
       purchaseCost: input.purchaseCost,
       warrantyExpiry: input.warrantyExpiry,
+      location: input.location,
+      condition: input.condition,
       notes: input.notes,
       customFields: input.customFields as Prisma.InputJsonValue | undefined,
     },
@@ -225,7 +235,12 @@ export async function transitionAssetStatus(
   if (input.toDepartmentId) await assertDepartmentBelongsToOrg(input.toDepartmentId, organizationId);
 
   // Allocating/transferring requires a target holder; returning clears it.
-  const clearsHolderStatuses: AssetStatus[] = [AssetStatus.RETURNED, AssetStatus.AVAILABLE, AssetStatus.RETIRED];
+  const clearsHolderStatuses: AssetStatus[] = [
+    AssetStatus.RETURNED,
+    AssetStatus.AVAILABLE,
+    AssetStatus.RETIRED,
+    AssetStatus.LOST,
+  ];
   const clearsHolder = clearsHolderStatuses.includes(input.toStatus);
   const nextHolderId = clearsHolder ? null : input.toHolderId ?? asset.currentHolderId;
   const nextDepartmentId = input.toDepartmentId ?? asset.currentDepartmentId;

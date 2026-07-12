@@ -6,6 +6,7 @@ export const AssetStatus = {
   RESERVED: "RESERVED",
   MAINTENANCE: "MAINTENANCE",
   RETURNED: "RETURNED",
+  LOST: "LOST",
   RETIRED: "RETIRED",
   DISPOSED: "DISPOSED",
 } as const;
@@ -20,6 +21,7 @@ export const ASSET_STATUS_LABELS: Record<AssetStatus, string> = {
   RESERVED: "Reserved",
   MAINTENANCE: "Maintenance",
   RETURNED: "Returned",
+  LOST: "Lost",
   RETIRED: "Retired",
   DISPOSED: "Disposed",
 };
@@ -53,6 +55,8 @@ export interface Asset {
   purchaseDate: string | null;
   purchaseCost: string | null;
   warrantyExpiry: string | null;
+  location: string | null;
+  condition: string | null;
   images: string[];
   documents: string[];
   qrCodeUrl: string | null;
@@ -72,6 +76,8 @@ export interface CreateAssetInput {
   purchaseDate?: string;
   purchaseCost?: number;
   warrantyExpiry?: string;
+  location?: string;
+  condition?: string;
   notes?: string;
   currentDepartmentId?: string;
 }
@@ -84,6 +90,8 @@ export interface UpdateAssetInput {
   purchaseDate?: string;
   purchaseCost?: number;
   warrantyExpiry?: string;
+  location?: string;
+  condition?: string;
   notes?: string;
 }
 
@@ -99,4 +107,5 @@ export interface AssetListFilters {
   categoryId?: string;
   status?: AssetStatus;
   departmentId?: string;
+  location?: string;
 }

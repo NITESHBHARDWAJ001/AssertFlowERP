@@ -25,6 +25,7 @@ import { AssetRequestStatusBadge } from "../../components/ui/AssetRequestStatusB
 const schema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   reason: z.string().optional(),
+  expectedReturnDate: z.string().optional(),
 });
 type Form = z.infer<typeof schema>;
 
@@ -52,7 +53,8 @@ export function AssetRequestsPage() {
   } = useForm<Form>({ resolver: zodResolver(schema) });
 
   const createMutation = useMutation({
-    mutationFn: (values: Form) => createAssetRequest(values),
+    mutationFn: (values: Form) =>
+      createAssetRequest({ ...values, expectedReturnDate: values.expectedReturnDate || undefined }),
     onSuccess: () => {
       toast.success("Request submitted");
       queryClient.invalidateQueries({ queryKey: ["asset-requests"] });
@@ -121,20 +123,21 @@ export function AssetRequestsPage() {
                   <th className="px-4 py-3 font-medium">Reason</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Asset</th>
+                  <th className="px-4 py-3 font-medium">Return By</th>
                   <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {isLoading && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                       Loading…
                     </td>
                   </tr>
                 )}
                 {!isLoading && requests.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                       No requests yet
                     </td>
                   </tr>
@@ -150,6 +153,22 @@ export function AssetRequestsPage() {
                       <AssetRequestStatusBadge status={r.status} />
                     </td>
                     <td className="px-4 py-3">{r.asset ? r.asset.assetTag : "—"}</td>
+                    <td className="px-4 py-3">
+                      {r.expectedReturnDate ? (
+                        <span
+                          className={
+                            r.status === "ALLOCATED" && new Date(r.expectedReturnDate) < new Date()
+                              ? "font-medium text-red-600 dark:text-red-400"
+                              : "text-slate-500 dark:text-slate-400"
+                          }
+                        >
+                          {new Date(r.expectedReturnDate).toLocaleDateString()}
+                          {r.status === "ALLOCATED" && new Date(r.expectedReturnDate) < new Date() && " (overdue)"}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         {r.status === "PENDING_DEPT_HEAD" && canActAsDeptHead && (
@@ -190,6 +209,12 @@ export function AssetRequestsPage() {
             ))}
           </SelectField>
           <TextField label="Reason (optional)" error={errors.reason?.message} {...register("reason")} />
+          <TextField
+            label="Expected return date (optional)"
+            type="date"
+            error={errors.expectedReturnDate?.message}
+            {...register("expectedReturnDate")}
+          />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancel

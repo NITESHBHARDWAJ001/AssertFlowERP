@@ -12,6 +12,19 @@ export async function loginRequest(email: string, password: string): Promise<Log
   return data.data;
 }
 
+export interface SignupInput {
+  organizationSlug: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export async function signupRequest(input: SignupInput): Promise<LoginResponse> {
+  const { data } = await apiClient.post<ApiEnvelope<LoginResponse>>("/auth/signup", input);
+  return data.data;
+}
+
 export async function logoutRequest(refreshToken: string): Promise<void> {
   await apiClient.post("/auth/logout", { refreshToken });
 }
