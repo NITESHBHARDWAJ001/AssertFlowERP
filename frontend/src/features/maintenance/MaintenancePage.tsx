@@ -11,6 +11,7 @@ import {
   listMaintenanceRequests,
   resolveMaintenanceRequest,
   startMaintenanceProgress,
+  uploadMaintenancePhotos,
 } from "../../api/maintenance";
 import { listAssets } from "../../api/assets";
 import { listEmployees } from "../../api/employees";
@@ -43,6 +44,7 @@ export function MaintenancePage() {
   const [resolution, setResolution] = useState("");
   const [rejectTarget, setRejectTarget] = useState<MaintenanceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [photosTarget, setPhotosTarget] = useState<MaintenanceRequest | null>(null);
 
   const canDecide = user?.role === Role.ORG_ADMIN || user?.role === Role.ASSET_MANAGER;
 
@@ -126,6 +128,16 @@ export function MaintenancePage() {
 
   const isTechnician = (r: MaintenanceRequest) => r.technician?.id === user?.id;
 
+  const uploadPhotosMutation = useMutation({
+    mutationFn: (files: File[]) => uploadMaintenancePhotos(photosTarget!.id, files),
+    onSuccess: (updated) => {
+      toast.success("Photos uploaded");
+      invalidate();
+      setPhotosTarget(updated);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to upload photos"),
+  });
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -182,6 +194,9 @@ export function MaintenancePage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => setPhotosTarget(r)}>
+                          Photos {r.photos.length > 0 ? `(${r.photos.length})` : ""}
+                        </Button>
                         {canDecide && r.status === "PENDING" && (
                           <>
                             <Button size="sm" onClick={() => approveMutation.mutate(r.id)}>
@@ -291,6 +306,43 @@ export function MaintenancePage() {
               }}
             >
               Assign
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={photosTarget !== null} onClose={() => setPhotosTarget(null)} title="Maintenance Photos">
+        <div className="space-y-4">
+          {photosTarget && photosTarget.photos.length === 0 && (
+            <p className="text-sm text-slate-400">No photos uploaded yet</p>
+          )}
+          {photosTarget && photosTarget.photos.length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {photosTarget.photos.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer">
+                  <img src={url} alt="" className="h-24 w-24 rounded-md border border-slate-200 object-cover dark:border-slate-700" />
+                </a>
+              ))}
+            </div>
+          )}
+          <label className="inline-block cursor-pointer text-sm text-brand-600 hover:underline dark:text-brand-400">
+            {uploadPhotosMutation.isPending ? "Uploading…" : "Upload photos"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={uploadPhotosMutation.isPending}
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                if (files.length > 0) uploadPhotosMutation.mutate(files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <div className="flex justify-end pt-2">
+            <Button type="button" variant="secondary" onClick={() => setPhotosTarget(null)}>
+              Close
             </Button>
           </div>
         </div>

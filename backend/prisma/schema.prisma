@@ -28,6 +28,7 @@ enum AssetStatus {
   RESERVED
   MAINTENANCE
   RETURNED
+  LOST
   RETIRED
   DISPOSED
 }
@@ -36,6 +37,13 @@ enum AssetRequestStatus {
   PENDING_DEPT_HEAD
   PENDING_ASSET_MANAGER
   ALLOCATED
+  REJECTED
+  CANCELLED
+}
+
+enum TransferRequestStatus {
+  PENDING
+  APPROVED
   REJECTED
   CANCELLED
 }
@@ -92,6 +100,7 @@ enum NotificationType {
   MAINTENANCE_RESOLVED
   RETURN_REMINDER
   AUDIT_ASSIGNED
+  AUDIT_DISCREPANCY
   OVERDUE_RETURN
   WARRANTY_EXPIRY
   ASSET_REQUEST_DECISION
@@ -129,6 +138,7 @@ model Organization {
   assetCategories   AssetCategory[]
   assets            Asset[]
   assetRequests     AssetRequest[]
+  assetTransferRequests AssetTransferRequest[]
   bookableResources    BookableResource[]
   bookings             Booking[]
   maintenanceRequests  MaintenanceRequest[]
@@ -188,6 +198,10 @@ model User {
   assetRequestsMade    AssetRequest[] @relation("RequestedBy")
   deptHeadApprovals    AssetRequest[] @relation("DeptHeadApproval")
   assetManagerApprovals AssetRequest[] @relation("AssetManagerApproval")
+  transferRequestsMade AssetTransferRequest[] @relation("TransferRequestedBy")
+  transfersFrom        AssetTransferRequest[] @relation("TransferFromHolder")
+  transfersTo          AssetTransferRequest[] @relation("TransferToHolder")
+  transferDecisions    AssetTransferRequest[] @relation("TransferDecidedBy")
   bookingsMade         Booking[]      @relation("BookedBy")
   bookingApprovals     Booking[]      @relation("BookingApprovedBy")
   maintenanceRaised    MaintenanceRequest[] @relation("MaintenanceRaisedBy")
@@ -304,6 +318,8 @@ model Asset {
   purchaseDate   DateTime?
   purchaseCost   Decimal?  @db.Decimal(12, 2)
   warrantyExpiry DateTime?
+  location       String?
+  condition      String?
 
   images    String[] @default([])
   documents String[] @default([])
@@ -315,6 +331,7 @@ model Asset {
 
   history             AssetHistory[]
   requests            AssetRequest[]
+  transferRequests    AssetTransferRequest[]
   maintenanceRequests MaintenanceRequest[]
   auditItems          AuditItem[]
 
@@ -391,6 +408,46 @@ model AssetRequest {
   @@index([requestedById])
   @@index([status])
   @@map("asset_requests")
+}
+
+// Reassigns an already-allocated asset to a new holder without returning it
+// to the pool first. Requested -> Approved (by Asset Manager/Org Admin/the
+// target department's head) -> the asset's currentHolderId updates and an
+// AssetHistory entry is written; the asset's status itself never leaves
+// ALLOCATED for this flow (see assetTransfer.service.ts).
+model AssetTransferRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  asset   Asset  @relation(fields: [assetId], references: [id])
+  assetId String
+
+  requestedBy   User   @relation("TransferRequestedBy", fields: [requestedById], references: [id])
+  requestedById String
+
+  fromHolder   User?   @relation("TransferFromHolder", fields: [fromHolderId], references: [id])
+  fromHolderId String?
+
+  toHolder   User   @relation("TransferToHolder", fields: [toHolderId], references: [id])
+  toHolderId String
+
+  reason String?
+
+  status TransferRequestStatus @default(PENDING)
+
+  decidedBy   User?     @relation("TransferDecidedBy", fields: [decidedById], references: [id])
+  decidedById String?
+  decidedAt   DateTime?
+  decisionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([status])
+  @@map("asset_transfer_requests")
 }
 
 model BookableResource {

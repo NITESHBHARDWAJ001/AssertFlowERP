@@ -47,3 +47,12 @@ export async function resolveMaintenanceRequest(id: string, resolution: string):
   });
   return data.data;
 }
+
+export async function uploadMaintenancePhotos(id: string, files: File[]): Promise<MaintenanceRequest> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  const { data } = await apiClient.post<ApiEnvelope<MaintenanceRequest>>(`/maintenance/${id}/photos`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data.data;
+}

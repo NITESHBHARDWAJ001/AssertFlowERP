@@ -9,6 +9,7 @@ const STATUS_TONE: Record<AssetStatus, "green" | "red" | "amber" | "slate" | "bl
   RESERVED: "amber",
   MAINTENANCE: "amber",
   RETURNED: "slate",
+  LOST: "red",
   RETIRED: "red",
   DISPOSED: "red",
 };

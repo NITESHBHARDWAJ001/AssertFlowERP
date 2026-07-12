@@ -25,7 +25,11 @@ const schema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   serialNumber: z.string().optional(),
   vendor: z.string().optional(),
+  purchaseDate: z.string().optional(),
   purchaseCost: z.string().optional(),
+  warrantyExpiry: z.string().optional(),
+  location: z.string().optional(),
+  condition: z.string().optional(),
   currentDepartmentId: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -38,16 +42,18 @@ export function AssetsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
 
   const canManage = user?.role === Role.ORG_ADMIN || user?.role === Role.ASSET_MANAGER;
 
   const { data: assets = [], isLoading } = useQuery({
-    queryKey: ["assets", { search, statusFilter, categoryFilter }],
+    queryKey: ["assets", { search, statusFilter, categoryFilter, locationFilter }],
     queryFn: () =>
       listAssets({
         search: search || undefined,
         status: statusFilter || undefined,
         categoryId: categoryFilter || undefined,
+        location: locationFilter || undefined,
       }),
   });
 
@@ -65,7 +71,12 @@ export function AssetsPage() {
     mutationFn: (values: Form) =>
       createAsset({
         ...values,
+        purchaseDate: values.purchaseDate || undefined,
         purchaseCost: values.purchaseCost ? Number(values.purchaseCost) : undefined,
+        warrantyExpiry: values.warrantyExpiry || undefined,
+        location: values.location || undefined,
+        condition: values.condition || undefined,
+        currentDepartmentId: values.currentDepartmentId || undefined,
       }),
     onSuccess: () => {
       toast.success("Asset registered");
@@ -97,6 +108,7 @@ export function AssetsPage() {
             : "—",
       },
       { header: "Department", cell: ({ row }) => row.original.currentDepartment?.name ?? "—" },
+      { header: "Location", cell: ({ row }) => row.original.location ?? "—" },
     ],
     []
   );
@@ -139,6 +151,12 @@ export function AssetsPage() {
             </option>
           ))}
         </select>
+        <input
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
+          placeholder="Filter by location…"
+          className="min-w-[160px] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        />
       </div>
 
       <Card>
@@ -165,7 +183,15 @@ export function AssetsPage() {
             <TextField label="Serial number" error={errors.serialNumber?.message} {...register("serialNumber")} />
             <TextField label="Vendor" error={errors.vendor?.message} {...register("vendor")} />
           </div>
-          <TextField label="Purchase cost" type="number" step="0.01" error={errors.purchaseCost?.message} {...register("purchaseCost")} />
+          <div className="grid grid-cols-2 gap-3">
+            <TextField label="Purchase date" type="date" error={errors.purchaseDate?.message} {...register("purchaseDate")} />
+            <TextField label="Purchase cost" type="number" step="0.01" error={errors.purchaseCost?.message} {...register("purchaseCost")} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField label="Warranty expiry" type="date" error={errors.warrantyExpiry?.message} {...register("warrantyExpiry")} />
+            <TextField label="Location (optional)" placeholder="e.g. Floor 3, Room 12" error={errors.location?.message} {...register("location")} />
+          </div>
+          <TextField label="Condition (optional)" placeholder="e.g. New, Good, Fair" error={errors.condition?.message} {...register("condition")} />
           <SelectField label="Department (optional)" {...register("currentDepartmentId")}>
             <option value="">— None —</option>
             {departments.map((d) => (

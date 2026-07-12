@@ -19,7 +19,7 @@ async function superAdminKpis() {
 }
 
 async function orgAdminKpis(organizationId: string) {
-  const [totalAssets, departments, employees, pendingRequests] = await Promise.all([
+  const [totalAssets, departments, employees, pendingRequests, overdueReturns] = await Promise.all([
     prisma.asset.count({ where: { organizationId, deletedAt: null } }),
     prisma.department.count({ where: { organizationId, deletedAt: null } }),
     prisma.user.count({ where: { organizationId, deletedAt: null } }),
@@ -29,6 +29,13 @@ async function orgAdminKpis(organizationId: string) {
         status: { in: [AssetRequestStatus.PENDING_DEPT_HEAD, AssetRequestStatus.PENDING_ASSET_MANAGER] },
       },
     }),
+    prisma.assetRequest.count({
+      where: {
+        organizationId,
+        status: AssetRequestStatus.ALLOCATED,
+        expectedReturnDate: { not: null, lt: new Date() },
+      },
+    }),
   ]);
 
   return [
@@ -36,11 +43,12 @@ async function orgAdminKpis(organizationId: string) {
     { label: "Departments", value: departments },
     { label: "Employees", value: employees },
     { label: "Pending Transfers", value: pendingRequests },
+    { label: "Overdue Returns", value: overdueReturns },
   ];
 }
 
 async function assetManagerKpis(organizationId: string) {
-  const [available, allocated, openMaintenance, activeBookings] = await Promise.all([
+  const [available, allocated, openMaintenance, activeBookings, overdueReturns] = await Promise.all([
     prisma.asset.count({ where: { organizationId, deletedAt: null, status: AssetStatus.AVAILABLE } }),
     prisma.asset.count({ where: { organizationId, deletedAt: null, status: AssetStatus.ALLOCATED } }),
     prisma.maintenanceRequest.count({
@@ -52,6 +60,13 @@ async function assetManagerKpis(organizationId: string) {
     prisma.booking.count({
       where: { organizationId, status: BookingStatus.APPROVED, endTime: { gte: new Date() } },
     }),
+    prisma.assetRequest.count({
+      where: {
+        organizationId,
+        status: AssetRequestStatus.ALLOCATED,
+        expectedReturnDate: { not: null, lt: new Date() },
+      },
+    }),
   ]);
 
   return [
@@ -59,6 +74,7 @@ async function assetManagerKpis(organizationId: string) {
     { label: "Allocated Assets", value: allocated },
     { label: "Maintenance Today", value: openMaintenance },
     { label: "Active Bookings", value: activeBookings },
+    { label: "Overdue Returns", value: overdueReturns },
   ];
 }
 
@@ -73,10 +89,11 @@ async function departmentHeadKpis(organizationId: string, userId: string) {
       { label: "Department Assets", value: 0 },
       { label: "Pending Approvals", value: 0 },
       { label: "Upcoming Returns", value: 0 },
+      { label: "Overdue Returns", value: 0 },
     ];
   }
 
-  const [assets, pendingApprovals, upcomingReturns] = await Promise.all([
+  const [assets, pendingApprovals, upcomingReturns, overdueReturns] = await Promise.all([
     prisma.asset.count({ where: { organizationId, deletedAt: null, currentDepartmentId: department.id } }),
     prisma.assetRequest.count({
       where: {
@@ -93,12 +110,21 @@ async function departmentHeadKpis(organizationId: string, userId: string) {
         requestedBy: { departmentId: department.id },
       },
     }),
+    prisma.assetRequest.count({
+      where: {
+        organizationId,
+        status: AssetRequestStatus.ALLOCATED,
+        expectedReturnDate: { not: null, lt: new Date() },
+        requestedBy: { departmentId: department.id },
+      },
+    }),
   ]);
 
   return [
     { label: "Department Assets", value: assets },
     { label: "Pending Approvals", value: pendingApprovals },
     { label: "Upcoming Returns", value: upcomingReturns },
+    { label: "Overdue Returns", value: overdueReturns },
   ];
 }
 

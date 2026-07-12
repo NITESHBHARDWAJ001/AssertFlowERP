@@ -256,7 +256,10 @@ export async function resolveRequest(
 
   const updated = await prisma.$transaction(async (tx) => {
     if (request.asset.status === AssetStatus.MAINTENANCE && isTransitionAllowed(AssetStatus.MAINTENANCE, AssetStatus.AVAILABLE)) {
-      await tx.asset.update({ where: { id: request.assetId }, data: { status: AssetStatus.AVAILABLE } });
+      await tx.asset.update({
+        where: { id: request.assetId },
+        data: { status: AssetStatus.AVAILABLE, currentHolderId: null },
+      });
       await tx.assetHistory.create({
         data: {
           assetId: request.assetId,
