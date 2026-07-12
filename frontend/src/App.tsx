@@ -3,12 +3,14 @@ import { RouterProvider } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { queryClient } from "./app/queryClient";
 import { router } from "./app/router";
+import { HelpChatWidget } from "./components/chat/HelpChatWidget";
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
+      <HelpChatWidget />
     </QueryClientProvider>
   );
 }

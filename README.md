@@ -81,11 +81,56 @@ the Organizations page. Log in as that Org Admin to manage Departments and Emplo
   Modal, DataTable, FormField, Badge, StatCard, AssetStatusBadge), per-role dashboard KPI
   placeholders.
 
-## What's out of scope (future modules)
+Also implemented: Resource Booking (conflict detection), Maintenance (raise → approve →
+assign → resolve), Audit Management (cycles, discrepancy reports), Notifications,
+Reports (CSV/Excel/PDF export), Analytics (charts), and Settings (asset prefix, booking
+and maintenance approval rules).
 
-Resource Booking, Maintenance, Audit Management, Notifications, Reports/export,
-Analytics charts, Settings/branding. Each will reuse the auth/tenant middleware and UI
-primitives built here.
+## Deploying the backend (Docker)
+
+`backend/Dockerfile` builds a production image in three stages (install → build →
+runtime) and ships a small Debian-slim image, not Alpine — `bcrypt` is a native module
+and Prisma's query engine needs `libssl`, both more reliable there than chasing
+musl/Alpine prebuilt-binary mismatches.
+
+**The container always migrates before it serves traffic.** `docker-entrypoint.sh` runs
+`prisma migrate deploy` (applies whatever migrations are already committed under
+`backend/prisma/migrations` — it never generates new ones or prompts) and only then
+starts `node dist/server.js`, using `exec` so the process receives shutdown signals
+directly. This runs on every container start, not just the first one, so a redeploy
+always reconciles the schema first.
+
+```bash
+cd backend
+docker build -t assetflow-backend .
+docker run -p 4000:4000 \
+  -e DATABASE_URL="postgresql://user:pass@host:5432/db?schema=public" \
+  -e JWT_ACCESS_SECRET="…" \
+  -e JWT_REFRESH_SECRET="…" \
+  -e CORS_ORIGIN="https://your-frontend.example.com" \
+  -e FRONTEND_URL="https://your-frontend.example.com" \
+  assetflow-backend
+```
+
+Required env vars: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`. See
+`backend/.env.example` for the full list (SMTP, Cloudinary, asset tag prefix are all
+optional with sane dev-mode fallbacks). On Railway/Render: point the service at
+`backend/Dockerfile`, set the same env vars in their dashboard, and each deploy will run
+migrations automatically via the entrypoint above — no separate "run migration" build
+step needed.
+
+**Local verification before you push:** `docker compose up --build` from the repo root
+builds the same image, starts a throwaway Postgres, and runs the backend against it —
+copy `.env.example` to `.env` first (repo root) for the JWT secrets. Watch the logs for
+`AssetFlow API: applying database migrations` followed by `AssetFlow API: starting
+server`; `curl http://localhost:4000/health` should return `{"status":"ok"}` once it's
+up. The image also carries a `HEALTHCHECK` hitting the same endpoint.
+
+The Super Admin still needs seeding once — that's a manual step, not part of the
+container's automatic startup (seeding on every restart would be unnecessary DB calls,
+even though the script itself is idempotent): run
+`DATABASE_URL="<production-url>" npm run prisma:seed` from `backend/` on your machine,
+pointed at the production database.
 
 ## File uploads
 

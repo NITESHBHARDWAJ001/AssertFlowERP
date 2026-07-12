@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AssetFlow</title>
+    <!-- Powers the in-app help assistant (src/components/chat). Each end
+         user authenticates with their own Puter account, so AI usage is
+         billed to them, not to AssetFlow - no API key lives in this app. -->
+    <script src="https://js.puter.com/v2/"></script>
   </head>
   <body>
     <div id="root"></div>

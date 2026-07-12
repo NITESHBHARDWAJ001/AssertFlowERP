@@ -1,0 +1,53 @@
+# Local verification of the production Docker image: `docker compose up
+# --build` builds backend/Dockerfile, starts Postgres, waits for it to be
+# healthy, then runs the backend container - whose entrypoint applies
+# migrations before the API starts listening.
+#
+# Not used for the actual deployment target (Railway/Render run the image
+# directly against their own managed Postgres) - this is for testing the
+# same image locally before you push it.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: assetflow
+      POSTGRES_PASSWORD: assetflow
+      POSTGRES_DB: assetflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - assetflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assetflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://assetflow:assetflow@db:5432/assetflow?schema=public
+      NODE_ENV: production
+      PORT: 4000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set a real secret in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set a real secret in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-superadmin@assetflow.local}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-ChangeMe123!}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    ports:
+      - "4000:4000"
+
+volumes:
+  assetflow_pgdata:
