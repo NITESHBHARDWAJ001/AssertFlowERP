@@ -2,11 +2,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getAsset, returnAsset, transitionAssetStatus, uploadAssetDocuments, uploadAssetImages } from "../../api/assets";
+import {
+  getAsset,
+  returnAsset,
+  transitionAssetStatus,
+  updateAsset,
+  uploadAssetDocuments,
+  uploadAssetImages,
+} from "../../api/assets";
 import { listEmployees } from "../../api/employees";
+import {
+  cancelTransferRequest,
+  createTransferRequest,
+  decideTransferRequest,
+  listTransferRequests,
+} from "../../api/assetTransfers";
 import { useAuth } from "../../features/auth/useAuth";
 import { Role } from "../../types/role";
 import { ASSET_STATUS_LABELS, type AssetStatus } from "../../types/asset";
+import { TRANSFER_REQUEST_STATUS_LABELS } from "../../types/assetTransfer";
 import { Card, CardBody, CardHeader, CardTitle } from "../../components/ui/Card";
 import { AssetStatusBadge } from "../../components/ui/AssetStatusBadge";
 import { Button } from "../../components/ui/Button";
@@ -31,8 +45,27 @@ export function AssetDetailPage() {
   const [holderId, setHolderId] = useState("");
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [condition, setCondition] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    serialNumber: "",
+    vendor: "",
+    purchaseDate: "",
+    purchaseCost: "",
+    warrantyExpiry: "",
+    location: "",
+    conditionText: "",
+    notes: "",
+  });
+
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferToHolderId, setTransferToHolderId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferDecisionNote, setTransferDecisionNote] = useState("");
 
   const canManage = user?.role === Role.ORG_ADMIN || user?.role === Role.ASSET_MANAGER;
+  const canDecideTransfer =
+    user?.role === Role.ORG_ADMIN || user?.role === Role.ASSET_MANAGER || user?.role === Role.DEPARTMENT_HEAD;
 
   const { data: asset, isLoading } = useQuery({
     queryKey: ["assets", id],
@@ -40,7 +73,17 @@ export function AssetDetailPage() {
     enabled: Boolean(id),
   });
 
-  const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: listEmployees, enabled: canManage });
+  const { data: employees = [] } = useQuery({
+    queryKey: ["employees"],
+    queryFn: listEmployees,
+    enabled: canManage || user?.role === Role.DEPARTMENT_HEAD,
+  });
+
+  const { data: transferRequests = [] } = useQuery({
+    queryKey: ["asset-transfers", id],
+    queryFn: () => listTransferRequests(id!),
+    enabled: Boolean(id),
+  });
 
   const transitionMutation = useMutation({
     mutationFn: () =>
@@ -79,6 +122,27 @@ export function AssetDetailPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to upload images"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateAsset(id!, {
+        name: editForm.name || undefined,
+        serialNumber: editForm.serialNumber || undefined,
+        vendor: editForm.vendor || undefined,
+        purchaseDate: editForm.purchaseDate || undefined,
+        purchaseCost: editForm.purchaseCost ? Number(editForm.purchaseCost) : undefined,
+        warrantyExpiry: editForm.warrantyExpiry || undefined,
+        location: editForm.location || undefined,
+        condition: editForm.conditionText || undefined,
+        notes: editForm.notes || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Asset details updated");
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      setIsEditModalOpen(false);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to update asset"),
+  });
+
   const uploadDocumentsMutation = useMutation({
     mutationFn: (files: File[]) => uploadAssetDocuments(id!, files),
     onSuccess: () => {
@@ -88,13 +152,73 @@ export function AssetDetailPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to upload documents"),
   });
 
+  const invalidateTransfers = () => {
+    queryClient.invalidateQueries({ queryKey: ["asset-transfers", id] });
+    queryClient.invalidateQueries({ queryKey: ["assets"] });
+  };
+
+  const createTransferMutation = useMutation({
+    mutationFn: () =>
+      createTransferRequest({
+        assetId: id!,
+        toHolderId: transferToHolderId || undefined,
+        reason: transferReason || undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Transfer request submitted");
+      invalidateTransfers();
+      setIsTransferModalOpen(false);
+      setTransferToHolderId("");
+      setTransferReason("");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to submit transfer request"),
+  });
+
+  const decideTransferMutation = useMutation({
+    mutationFn: ({ transferId, approve }: { transferId: string; approve: boolean }) =>
+      decideTransferRequest(transferId, approve, transferDecisionNote || undefined),
+    onSuccess: () => {
+      toast.success("Decision recorded");
+      invalidateTransfers();
+      setTransferDecisionNote("");
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to record decision"),
+  });
+
+  const cancelTransferMutation = useMutation({
+    mutationFn: (transferId: string) => cancelTransferRequest(transferId),
+    onSuccess: () => {
+      toast.success("Transfer request cancelled");
+      invalidateTransfers();
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed to cancel"),
+  });
+
   const canReturn =
     asset &&
     (asset.status === "ALLOCATED" || asset.status === "TRANSFERRED") &&
     (canManage || asset.currentHolder?.id === user?.id);
 
+  const hasPendingTransfer = transferRequests.some((r) => r.status === "PENDING");
+  const canRequestTransfer = asset && asset.status === "ALLOCATED" && asset.currentHolder && !hasPendingTransfer;
+
   if (isLoading || !asset) {
     return <p className="text-sm text-slate-400">Loading…</p>;
+  }
+
+  function openEditModal() {
+    setEditForm({
+      name: asset!.name,
+      serialNumber: asset!.serialNumber ?? "",
+      vendor: asset!.vendor ?? "",
+      purchaseDate: asset!.purchaseDate ? asset!.purchaseDate.slice(0, 10) : "",
+      purchaseCost: asset!.purchaseCost ?? "",
+      warrantyExpiry: asset!.warrantyExpiry ? asset!.warrantyExpiry.slice(0, 10) : "",
+      location: asset!.location ?? "",
+      conditionText: asset!.condition ?? "",
+      notes: asset!.notes ?? "",
+    });
+    setIsEditModalOpen(true);
   }
 
   return (
@@ -106,13 +230,30 @@ export function AssetDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <AssetStatusBadge status={asset.status} />
+          {canManage && (
+            <Button size="sm" variant="secondary" onClick={openEditModal}>
+              Edit Details
+            </Button>
+          )}
           {canReturn && (
             <Button size="sm" variant="secondary" onClick={() => setIsReturnModalOpen(true)}>
               Return Asset
             </Button>
           )}
+          {canRequestTransfer && (
+            <Button size="sm" onClick={() => setIsTransferModalOpen(true)}>
+              Request Transfer
+            </Button>
+          )}
         </div>
       </div>
+
+      {asset.status === "ALLOCATED" && asset.currentHolder && (
+        <p className="mb-4 -mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Currently held by <span className="font-medium text-slate-900 dark:text-slate-100">{asset.currentHolder.firstName} {asset.currentHolder.lastName}</span>.
+          {hasPendingTransfer && " A transfer request is already pending for this asset."}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -132,6 +273,8 @@ export function AssetDetailPage() {
               label="Warranty Expiry"
               value={asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toLocaleDateString() : "—"}
             />
+            <DetailRow label="Location" value={asset.location ?? "—"} />
+            <DetailRow label="Condition" value={asset.condition ?? "—"} />
             <DetailRow
               label="Current Holder"
               value={asset.currentHolder ? `${asset.currentHolder.firstName} ${asset.currentHolder.lastName}` : "—"}
@@ -249,6 +392,52 @@ export function AssetDetailPage() {
         </Card>
       )}
 
+      {transferRequests.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Transfer Requests</CardTitle>
+          </CardHeader>
+          <CardBody className="p-0">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {transferRequests.map((r) => (
+                <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                      {r.fromHolder ? `${r.fromHolder.firstName} ${r.fromHolder.lastName}` : "Unassigned"} → {r.toHolder.firstName} {r.toHolder.lastName}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Requested by {r.requestedBy.firstName} {r.requestedBy.lastName}
+                      {r.reason ? ` — ${r.reason}` : ""} · {TRANSFER_REQUEST_STATUS_LABELS[r.status]}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {r.status === "PENDING" && canDecideTransfer && (
+                      <>
+                        <Button size="sm" onClick={() => decideTransferMutation.mutate({ transferId: r.id, approve: true })}>
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => decideTransferMutation.mutate({ transferId: r.id, approve: false })}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {r.status === "PENDING" && r.requestedBy.id === user?.id && (
+                      <Button size="sm" variant="danger" onClick={() => cancelTransferMutation.mutate(r.id)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       <Card className="mt-4">
         <CardHeader>
           <CardTitle>Asset History</CardTitle>
@@ -281,6 +470,76 @@ export function AssetDetailPage() {
         ← Back to Assets
       </Link>
 
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Asset Details">
+        <div className="space-y-4">
+          <TextField
+            label="Asset name"
+            value={editForm.name}
+            onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Serial number"
+              value={editForm.serialNumber}
+              onChange={(e) => setEditForm((f) => ({ ...f, serialNumber: e.target.value }))}
+            />
+            <TextField
+              label="Vendor"
+              value={editForm.vendor}
+              onChange={(e) => setEditForm((f) => ({ ...f, vendor: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Purchase date"
+              type="date"
+              value={editForm.purchaseDate}
+              onChange={(e) => setEditForm((f) => ({ ...f, purchaseDate: e.target.value }))}
+            />
+            <TextField
+              label="Purchase cost"
+              type="number"
+              step="0.01"
+              value={editForm.purchaseCost}
+              onChange={(e) => setEditForm((f) => ({ ...f, purchaseCost: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Warranty expiry"
+              type="date"
+              value={editForm.warrantyExpiry}
+              onChange={(e) => setEditForm((f) => ({ ...f, warrantyExpiry: e.target.value }))}
+            />
+            <TextField
+              label="Location"
+              placeholder="e.g. Floor 3, Room 12"
+              value={editForm.location}
+              onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+            />
+          </div>
+          <TextField
+            label="Condition"
+            placeholder="e.g. New, Good, Fair"
+            value={editForm.conditionText}
+            onChange={(e) => setEditForm((f) => ({ ...f, conditionText: e.target.value }))}
+          />
+          <TextField
+            label="Notes"
+            value={editForm.notes}
+            onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" isLoading={updateMutation.isPending} onClick={() => updateMutation.mutate()}>
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={transitionModal !== null}
         onClose={() => setTransitionModal(null)}
@@ -308,6 +567,40 @@ export function AssetDetailPage() {
               onClick={() => transitionMutation.mutate()}
             >
               Confirm
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Request Transfer">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            {asset.currentHolder && (
+              <>
+                Currently held by <span className="font-medium">{asset.currentHolder.firstName} {asset.currentHolder.lastName}</span>.
+              </>
+            )}{" "}
+            Leave "Transfer to" empty to request it for yourself.
+          </p>
+          <SelectField label="Transfer to (optional)" value={transferToHolderId} onChange={(e) => setTransferToHolderId(e.target.value)}>
+            <option value="">Myself ({user?.firstName} {user?.lastName})</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.firstName} {emp.lastName}
+              </option>
+            ))}
+          </SelectField>
+          <TextField label="Reason (optional)" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setIsTransferModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              isLoading={createTransferMutation.isPending}
+              onClick={() => createTransferMutation.mutate()}
+            >
+              Submit Request
             </Button>
           </div>
         </div>

@@ -1,45 +1,40 @@
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { getDashboardKpis } from "../../api/dashboard";
 import { useAuth } from "../../features/auth/useAuth";
 import { Role, ROLE_LABELS } from "../../types/role";
 import { StatCard } from "../../components/ui/StatCard";
+import { Button } from "../../components/ui/Button";
 
-// KPIs are placeholders wired up once the Asset module lands; the point of
-// this shell is that every role gets a dashboard route, populated per-role.
-const KPI_SETS: Record<Role, { label: string; value: string | number }[]> = {
-  [Role.SUPER_ADMIN]: [
-    { label: "Organizations", value: "—" },
-    { label: "Active Organizations", value: "—" },
-    { label: "Suspended Organizations", value: "—" },
-    { label: "Platform Users", value: "—" },
-  ],
+const QUICK_ACTIONS: Partial<Record<Role, { label: string; to: string }[]>> = {
   [Role.ORG_ADMIN]: [
-    { label: "Total Assets", value: "—" },
-    { label: "Departments", value: "—" },
-    { label: "Employees", value: "—" },
-    { label: "Pending Transfers", value: "—" },
+    { label: "Register Asset", to: "/assets" },
+    { label: "Book Resource", to: "/bookings" },
+    { label: "Raise Maintenance Request", to: "/maintenance" },
   ],
   [Role.ASSET_MANAGER]: [
-    { label: "Available Assets", value: "—" },
-    { label: "Allocated Assets", value: "—" },
-    { label: "Maintenance Today", value: "—" },
-    { label: "Active Bookings", value: "—" },
+    { label: "Register Asset", to: "/assets" },
+    { label: "Book Resource", to: "/bookings" },
+    { label: "Raise Maintenance Request", to: "/maintenance" },
   ],
-  [Role.DEPARTMENT_HEAD]: [
-    { label: "Department Assets", value: "—" },
-    { label: "Pending Approvals", value: "—" },
-    { label: "Upcoming Returns", value: "—" },
-  ],
+  [Role.DEPARTMENT_HEAD]: [{ label: "Book Resource", to: "/bookings" }],
   [Role.EMPLOYEE]: [
-    { label: "My Assets", value: "—" },
-    { label: "Open Requests", value: "—" },
-    { label: "Upcoming Bookings", value: "—" },
+    { label: "Book Resource", to: "/bookings" },
+    { label: "Raise Maintenance Request", to: "/maintenance" },
   ],
 };
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { data: kpis = [], isLoading } = useQuery({
+    queryKey: ["dashboard-kpis"],
+    queryFn: getDashboardKpis,
+  });
+
   if (!user) return null;
 
-  const kpis = KPI_SETS[user.role];
+  const quickActions = QUICK_ACTIONS[user.role] ?? [];
 
   return (
     <div>
@@ -49,10 +44,27 @@ export function DashboardPage() {
       <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">{ROLE_LABELS[user.role]} dashboard</p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <StatCard key={kpi.label} label={kpi.label} value={kpi.value} />
-        ))}
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <StatCard key={i} label="Loading…" value="—" />
+            ))
+          : kpis.map((kpi) => <StatCard key={kpi.label} label={kpi.label} value={kpi.value} />)}
       </div>
+
+      {quickActions.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Quick actions
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action) => (
+              <Button key={action.to} variant="secondary" size="sm" onClick={() => navigate(action.to)}>
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,12 +7,13 @@ import { AssetStatus } from "@prisma/client";
 // first passing through Returned/Available.
 const TRANSITIONS: Record<AssetStatus, AssetStatus[]> = {
   REGISTERED: [AssetStatus.AVAILABLE],
-  AVAILABLE: [AssetStatus.ALLOCATED, AssetStatus.RESERVED, AssetStatus.MAINTENANCE, AssetStatus.RETIRED],
-  ALLOCATED: [AssetStatus.TRANSFERRED, AssetStatus.RETURNED, AssetStatus.MAINTENANCE],
-  TRANSFERRED: [AssetStatus.ALLOCATED, AssetStatus.RETURNED],
-  RESERVED: [AssetStatus.ALLOCATED, AssetStatus.AVAILABLE],
-  MAINTENANCE: [AssetStatus.AVAILABLE, AssetStatus.RETIRED],
+  AVAILABLE: [AssetStatus.ALLOCATED, AssetStatus.RESERVED, AssetStatus.MAINTENANCE, AssetStatus.RETIRED, AssetStatus.LOST],
+  ALLOCATED: [AssetStatus.TRANSFERRED, AssetStatus.RETURNED, AssetStatus.MAINTENANCE, AssetStatus.LOST],
+  TRANSFERRED: [AssetStatus.ALLOCATED, AssetStatus.RETURNED, AssetStatus.LOST],
+  RESERVED: [AssetStatus.ALLOCATED, AssetStatus.AVAILABLE, AssetStatus.LOST],
+  MAINTENANCE: [AssetStatus.AVAILABLE, AssetStatus.RETIRED, AssetStatus.LOST],
   RETURNED: [AssetStatus.AVAILABLE, AssetStatus.MAINTENANCE],
+  LOST: [AssetStatus.AVAILABLE, AssetStatus.RETIRED],
   RETIRED: [AssetStatus.DISPOSED],
   DISPOSED: [],
 };

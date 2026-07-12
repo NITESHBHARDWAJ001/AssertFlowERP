@@ -12,6 +12,11 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, result, "Logged in successfully");
 });
 
+export const signup = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.signup(req.body, getClientIp(req));
+  return sendSuccess(res, result, "Account created", 201);
+});
+
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
   const result = await authService.refresh(refreshToken);

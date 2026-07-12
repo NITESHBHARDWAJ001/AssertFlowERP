@@ -9,6 +9,8 @@ export const createAssetSchema = z.object({
   purchaseDate: z.coerce.date().optional(),
   purchaseCost: z.coerce.number().nonnegative().optional(),
   warrantyExpiry: z.coerce.date().optional(),
+  location: z.string().max(150).optional(),
+  condition: z.string().max(150).optional(),
   notes: z.string().max(2000).optional(),
   currentDepartmentId: z.string().min(1).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
@@ -22,6 +24,8 @@ export const updateAssetSchema = z.object({
   purchaseDate: z.coerce.date().optional(),
   purchaseCost: z.coerce.number().nonnegative().optional(),
   warrantyExpiry: z.coerce.date().optional(),
+  location: z.string().max(150).optional(),
+  condition: z.string().max(150).optional(),
   notes: z.string().max(2000).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
 });
@@ -46,4 +50,5 @@ export const listAssetsQuerySchema = z.object({
   categoryId: z.string().optional(),
   status: z.nativeEnum(AssetStatus).optional(),
   departmentId: z.string().optional(),
+  location: z.string().optional(),
 });
