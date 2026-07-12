@@ -20,6 +20,83 @@ enum OrganizationStatus {
   SUSPENDED
 }
 
+enum AssetStatus {
+  REGISTERED
+  AVAILABLE
+  ALLOCATED
+  TRANSFERRED
+  RESERVED
+  MAINTENANCE
+  RETURNED
+  RETIRED
+  DISPOSED
+}
+
+enum AssetRequestStatus {
+  PENDING_DEPT_HEAD
+  PENDING_ASSET_MANAGER
+  ALLOCATED
+  REJECTED
+  CANCELLED
+}
+
+enum ResourceType {
+  MEETING_ROOM
+  VEHICLE
+  PROJECTOR
+  EQUIPMENT
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MaintenanceStatus {
+  PENDING
+  APPROVED
+  TECHNICIAN_ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum AuditCycleStatus {
+  DRAFT
+  IN_PROGRESS
+  CLOSED
+}
+
+enum AuditItemStatus {
+  PENDING
+  VERIFIED
+  MISSING
+  DAMAGED
+}
+
+enum NotificationType {
+  ASSET_ASSIGNED
+  TRANSFER_APPROVED
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  MAINTENANCE_DUE
+  MAINTENANCE_RESOLVED
+  RETURN_REMINDER
+  AUDIT_ASSIGNED
+  OVERDUE_RETURN
+  WARRANTY_EXPIRY
+  ASSET_REQUEST_DECISION
+}
+
 // Organization is the tenant boundary. Every business record either
 // belongs to exactly one Organization, or (SUPER_ADMIN users only) to none.
 model Organization {
@@ -28,13 +105,27 @@ model Organization {
   slug      String             @unique
   status    OrganizationStatus @default(ACTIVE)
   plan      String             @default("free")
+
+  // Asset tag generation: e.g. prefix "AST" + zero-padded sequence -> "AST-00001".
+  // Incremented atomically on each asset creation, never client-supplied.
+  assetTagPrefix   String @default("AST")
+  assetTagSequence Int    @default(0)
+
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
   deletedAt DateTime?
 
-  users         User[]
-  departments   Department[]
-  activityLogs  ActivityLog[]
+  users           User[]
+  departments     Department[]
+  activityLogs    ActivityLog[]
+  assetCategories   AssetCategory[]
+  assets            Asset[]
+  assetRequests     AssetRequest[]
+  bookableResources    BookableResource[]
+  bookings             Booking[]
+  maintenanceRequests  MaintenanceRequest[]
+  auditCycles          AuditCycle[]
+  notifications        Notification[]
 
   @@map("organizations")
 }
@@ -53,6 +144,7 @@ model Department {
   headUserId   String?   @unique
 
   employees    User[]    @relation("DepartmentEmployees")
+  assets       Asset[]
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -83,6 +175,20 @@ model User {
   refreshTokens  RefreshToken[]
   activityLogs   ActivityLog[]
   passwordResetTokens PasswordResetToken[]
+  assetsHeld     Asset[]       @relation("AssetHolder")
+  assetHistoryEntries AssetHistory[]
+  assetRequestsMade    AssetRequest[] @relation("RequestedBy")
+  deptHeadApprovals    AssetRequest[] @relation("DeptHeadApproval")
+  assetManagerApprovals AssetRequest[] @relation("AssetManagerApproval")
+  bookingsMade         Booking[]      @relation("BookedBy")
+  bookingApprovals     Booking[]      @relation("BookingApprovedBy")
+  maintenanceRaised    MaintenanceRequest[] @relation("MaintenanceRaisedBy")
+  maintenanceApprovals MaintenanceRequest[] @relation("MaintenanceApprovedBy")
+  maintenanceAssigned  MaintenanceRequest[] @relation("MaintenanceTechnician")
+  auditCyclesAsAuditor AuditCycle[] @relation("AuditAuditor")
+  auditCyclesCreated   AuditCycle[] @relation("AuditCreatedBy")
+  auditItemsVerified   AuditItem[]  @relation("AuditVerifiedBy")
+  notifications        Notification[]
 
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -140,4 +246,326 @@ model ActivityLog {
   @@index([organizationId])
   @@index([userId])
   @@map("activity_logs")
+}
+
+model AssetCategory {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  name        String
+  description String?
+  icon        String?
+  // Org-defined extra fields for this category, e.g. [{ "key": "cpu", "label": "CPU", "type": "text" }]
+  customFieldsSchema Json?
+
+  assets        Asset[]
+  assetRequests AssetRequest[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("asset_categories")
+}
+
+model Asset {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  // Human-readable tag like "AST-00042", unique within the org, generated
+  // from a per-org sequence at creation time - never client-supplied.
+  assetTag String
+
+  name     String
+  category AssetCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  serialNumber String?
+  status       AssetStatus @default(REGISTERED)
+
+  currentHolder       User?       @relation("AssetHolder", fields: [currentHolderId], references: [id])
+  currentHolderId     String?
+  currentDepartment   Department? @relation(fields: [currentDepartmentId], references: [id])
+  currentDepartmentId String?
+
+  vendor         String?
+  purchaseDate   DateTime?
+  purchaseCost   Decimal?  @db.Decimal(12, 2)
+  warrantyExpiry DateTime?
+
+  images    String[] @default([])
+  documents String[] @default([])
+  qrCodeUrl String?
+  notes     String?
+
+  // Custom metadata values matching the category's customFieldsSchema keys
+  customFields Json?
+
+  history             AssetHistory[]
+  requests            AssetRequest[]
+  maintenanceRequests MaintenanceRequest[]
+  auditItems          AuditItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([organizationId, assetTag])
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([currentDepartmentId])
+  @@index([currentHolderId])
+  @@map("assets")
+}
+
+model AssetHistory {
+  id      String @id @default(cuid())
+  asset   Asset  @relation(fields: [assetId], references: [id])
+  assetId String
+
+  action       String
+  fromStatus   AssetStatus?
+  toStatus     AssetStatus?
+  fromHolderId String?
+  toHolderId   String?
+  note         String?
+
+  performedBy   User?   @relation(fields: [performedById], references: [id])
+  performedById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+  @@map("asset_history")
+}
+
+// Employee -> Department Head approval -> Asset Manager approval -> Allocated.
+// The Asset Manager's approval step also picks the concrete Asset and
+// performs the allocation, so a successful request always ends with an
+// Asset in ALLOCATED status and a matching AssetHistory entry.
+model AssetRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  requestedBy   User   @relation("RequestedBy", fields: [requestedById], references: [id])
+  requestedById String
+
+  category   AssetCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+  assetId String?
+
+  reason             String?
+  expectedReturnDate DateTime?
+
+  status AssetRequestStatus @default(PENDING_DEPT_HEAD)
+
+  deptHeadApprovedBy   User?     @relation("DeptHeadApproval", fields: [deptHeadApprovedById], references: [id])
+  deptHeadApprovedById String?
+  deptHeadDecisionAt   DateTime?
+  deptHeadNote         String?
+
+  assetManagerApprovedBy   User?     @relation("AssetManagerApproval", fields: [assetManagerApprovedById], references: [id])
+  assetManagerApprovedById String?
+  assetManagerDecisionAt   DateTime?
+  assetManagerNote         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("asset_requests")
+}
+
+model BookableResource {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  name        String
+  type        ResourceType
+  location    String?
+  capacity    Int?
+  description String?
+
+  bookings Booking[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("bookable_resources")
+}
+
+// Reschedule is modeled as an update to start/end that resets status to
+// PENDING - there is no separate history table since a booking's own
+// updatedAt/status already capture the current state, and conflict checks
+// only ever care about the live row.
+model Booking {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  resource   BookableResource @relation(fields: [resourceId], references: [id])
+  resourceId String
+
+  bookedBy   User   @relation("BookedBy", fields: [bookedById], references: [id])
+  bookedById String
+
+  purpose   String?
+  startTime DateTime
+  endTime   DateTime
+
+  status BookingStatus @default(PENDING)
+
+  approvedBy      User?     @relation("BookingApprovedBy", fields: [approvedById], references: [id])
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([resourceId])
+  @@index([bookedById])
+  @@index([startTime, endTime])
+  @@map("bookings")
+}
+
+// Approving a request moves the linked Asset to MAINTENANCE status (via the
+// same state machine Assets already use); resolving moves it back to
+// AVAILABLE. See maintenance.service.ts for the coordination logic.
+model MaintenanceRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  asset   Asset  @relation(fields: [assetId], references: [id])
+  assetId String
+
+  raisedBy   User   @relation("MaintenanceRaisedBy", fields: [raisedById], references: [id])
+  raisedById String
+
+  title       String
+  description String?
+  priority    MaintenancePriority @default(MEDIUM)
+  photos      String[]            @default([])
+
+  status MaintenanceStatus @default(PENDING)
+
+  approvedBy      User?     @relation("MaintenanceApprovedBy", fields: [approvedById], references: [id])
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  technician   User?     @relation("MaintenanceTechnician", fields: [technicianId], references: [id])
+  technicianId String?
+  assignedAt   DateTime?
+
+  resolution String?
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([status])
+  @@map("maintenance_requests")
+}
+
+// A cycle snapshots the org's live (non-retired/disposed) assets into
+// AuditItem rows at creation time - the auditor then verifies each one.
+// Closing requires every item to have left PENDING (see audit.service.ts).
+model AuditCycle {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+
+  auditor   User   @relation("AuditAuditor", fields: [auditorId], references: [id])
+  auditorId String
+
+  status AuditCycleStatus @default(DRAFT)
+
+  createdBy   User   @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  createdById String
+
+  closedAt DateTime?
+
+  items AuditItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("audit_cycles")
+}
+
+model AuditItem {
+  id      String     @id @default(cuid())
+  cycle   AuditCycle @relation(fields: [cycleId], references: [id])
+  cycleId String
+
+  asset   Asset  @relation(fields: [assetId], references: [id])
+  assetId String
+
+  status     AuditItemStatus @default(PENDING)
+  notes      String?
+  verifiedAt DateTime?
+
+  verifiedBy   User?   @relation("AuditVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cycleId, assetId])
+  @@index([cycleId])
+  @@index([assetId])
+  @@map("audit_items")
+}
+
+// Event-driven only (created inline by the service that causes the event -
+// e.g. approving a booking notifies the booker immediately). Time-based
+// triggers like "Booking Reminder" or "Warranty Expiry" need a scheduler,
+// which is out of scope here; the data model is ready for one to be added.
+model Notification {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  type    NotificationType
+  title   String
+  message String
+
+  entityType String?
+  entityId   String?
+
+  isRead Boolean @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId, isRead])
+  @@map("notifications")
 }

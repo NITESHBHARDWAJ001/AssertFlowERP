@@ -30,6 +30,41 @@ export const navItems: NavItem[] = [
     roles: [Role.ORG_ADMIN],
   },
   {
+    label: "Assets",
+    path: "/assets",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
+  },
+  {
+    label: "Asset Categories",
+    path: "/asset-categories",
+    roles: [Role.ORG_ADMIN],
+  },
+  {
+    label: "Asset Requests",
+    path: "/asset-requests",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
+  },
+  {
+    label: "Bookings",
+    path: "/bookings",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
+  },
+  {
+    label: "Maintenance",
+    path: "/maintenance",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
+  },
+  {
+    label: "Audits",
+    path: "/audits",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE],
+  },
+  {
+    label: "Resources",
+    path: "/resources",
+    roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER],
+  },
+  {
     label: "Activity Log",
     path: "/activity-log",
     roles: [Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD],

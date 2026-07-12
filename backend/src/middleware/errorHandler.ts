@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
+import { MulterError } from "multer";
 import { ApiError } from "../utils/ApiError";
 
 export function notFoundHandler(req: Request, _res: Response, next: NextFunction) {
@@ -27,6 +28,13 @@ export function globalErrorHandler(
       success: false,
       message: "Validation failed",
       details: err.flatten(),
+    });
+  }
+
+  if (err instanceof MulterError) {
+    return res.status(400).json({
+      success: false,
+      message: err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 10MB)" : err.message,
     });
   }
 

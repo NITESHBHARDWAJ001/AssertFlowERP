@@ -58,24 +58,41 @@ Log in with the `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` from `backend/.env`
 Super Admin, create an Organization (this also creates that org's first Org Admin) from
 the Organizations page. Log in as that Org Admin to manage Departments and Employees.
 
-## What's implemented (foundation)
+## What's implemented
 
 - JWT auth: login, silent refresh-token rotation, logout, forgot/reset password
   (Nodemailer — logs to console in dev if `SMTP_HOST` is unset).
 - RBAC middleware (`authorize`) and tenant-scoping helper (`requireOrganization`).
 - Organizations (Super Admin): create (with first Org Admin), list, suspend, activate.
 - Departments & Employees (Org Admin): CRUD, scoped to the caller's organization.
-- Activity log: every auth event and admin mutation is recorded with who/what/when/IP,
+- **Asset Categories**: org-defined categories with custom metadata field schemas.
+- **Asset Management**: register, auto-generated asset tags, QR code generation, 9-status
+  lifecycle state machine (Registered → Available → Allocated/Reserved/Maintenance →
+  Returned → Retired → Disposed), role-scoped visibility, search/filter, image and
+  document uploads (Cloudinary in production, local disk fallback under
+  `backend/uploads` in dev — see `backend/src/utils/storage.ts`).
+- **Asset Allocation workflow**: Employee request → Department Head approval → Asset
+  Manager approval (picks the specific asset) → Allocated, plus self-service Return with
+  condition notes.
+- Activity log: every mutation across every module is recorded with who/what/when/IP,
   scoped per-organization.
-- Frontend shell: protected/role-gated routing, sidebar/topbar/breadcrumbs layout,
-  reusable UI primitives (Button, Card, Modal, DataTable, FormField, Badge, StatCard),
-  per-role dashboard KPI placeholders.
+- Frontend shell: protected/role-gated routing, dark mode toggle, mobile responsive nav
+  (hamburger drawer), sidebar/topbar/breadcrumbs, reusable UI primitives (Button, Card,
+  Modal, DataTable, FormField, Badge, StatCard, AssetStatusBadge), per-role dashboard KPI
+  placeholders.
 
 ## What's out of scope (future modules)
 
-Assets, Asset Allocation workflow, Resource Booking, Maintenance, Audit Management,
-Reports/export, Notification delivery, Analytics charts, Settings/branding, Cloudinary
-integration. Each will reuse the auth/tenant middleware and UI primitives built here.
+Resource Booking, Maintenance, Audit Management, Notifications, Reports/export,
+Analytics charts, Settings/branding. Each will reuse the auth/tenant middleware and UI
+primitives built here.
+
+## File uploads
+
+Set `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` in
+`backend/.env` to upload to Cloudinary. Leave them blank and uploads are written to
+`backend/uploads/` and served from `/uploads/...` — no external account needed for
+local development.
 
 ## Verifying tenant isolation
 

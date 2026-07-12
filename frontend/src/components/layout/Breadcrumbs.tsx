@@ -6,6 +6,13 @@ const LABELS: Record<string, string> = {
   departments: "Departments",
   employees: "Employees",
   "activity-log": "Activity Log",
+  assets: "Assets",
+  "asset-categories": "Asset Categories",
+  "asset-requests": "Asset Requests",
+  bookings: "Bookings",
+  resources: "Resources",
+  maintenance: "Maintenance",
+  audits: "Audits",
 };
 
 export function Breadcrumbs() {

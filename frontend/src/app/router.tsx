@@ -9,6 +9,15 @@ import { OrganizationsPage } from "../features/organizations/OrganizationsPage";
 import { DepartmentsPage } from "../features/departments/DepartmentsPage";
 import { EmployeesPage } from "../features/employees/EmployeesPage";
 import { ActivityLogPage } from "../features/activity-log/ActivityLogPage";
+import { AssetCategoriesPage } from "../features/asset-categories/AssetCategoriesPage";
+import { AssetsPage } from "../features/assets/AssetsPage";
+import { AssetDetailPage } from "../features/assets/AssetDetailPage";
+import { AssetRequestsPage } from "../features/asset-requests/AssetRequestsPage";
+import { ResourcesPage } from "../features/resources/ResourcesPage";
+import { BookingsPage } from "../features/bookings/BookingsPage";
+import { MaintenancePage } from "../features/maintenance/MaintenancePage";
+import { AuditCyclesPage } from "../features/audits/AuditCyclesPage";
+import { AuditCycleDetailPage } from "../features/audits/AuditCycleDetailPage";
 import { Role } from "../types/role";
 
 export const router = createBrowserRouter([
@@ -32,7 +41,28 @@ export const router = createBrowserRouter([
             children: [
               { path: "/departments", element: <DepartmentsPage /> },
               { path: "/employees", element: <EmployeesPage /> },
+              { path: "/asset-categories", element: <AssetCategoriesPage /> },
             ],
+          },
+          {
+            element: (
+              <ProtectedRoute
+                allowedRoles={[Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD, Role.EMPLOYEE]}
+              />
+            ),
+            children: [
+              { path: "/assets", element: <AssetsPage /> },
+              { path: "/assets/:id", element: <AssetDetailPage /> },
+              { path: "/asset-requests", element: <AssetRequestsPage /> },
+              { path: "/bookings", element: <BookingsPage /> },
+              { path: "/maintenance", element: <MaintenancePage /> },
+              { path: "/audits", element: <AuditCyclesPage /> },
+              { path: "/audits/:id", element: <AuditCycleDetailPage /> },
+            ],
+          },
+          {
+            element: <ProtectedRoute allowedRoles={[Role.ORG_ADMIN, Role.ASSET_MANAGER]} />,
+            children: [{ path: "/resources", element: <ResourcesPage /> }],
           },
           {
             element: <ProtectedRoute allowedRoles={[Role.ORG_ADMIN, Role.ASSET_MANAGER, Role.DEPARTMENT_HEAD]} />,
