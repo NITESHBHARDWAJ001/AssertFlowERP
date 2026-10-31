@@ -7,6 +7,10 @@ middleware established here.
 
 ## Deployed linked = https://assert-flow-erp.vercel.app/
 
+For the complete product overview, role-to-feature matrix, use cases, workflow mapping,
+demo accounts, data model notes, and operational guidance, see
+[projectdetail.md](projectdetail.md).
+
 ## Architecture
 
 - **Backend**: Node.js, Express, TypeScript, Prisma ORM, PostgreSQL. Layered as
@@ -59,6 +63,22 @@ npm run dev              # http://localhost:5173
 Log in with the `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` from `backend/.env`. As
 Super Admin, create an Organization (this also creates that org's first Org Admin) from
 the Organizations page. Log in as that Org Admin to manage Departments and Employees.
+
+### Load the complete demo tenant
+
+The regular Prisma seed creates only the platform Super Admin. To populate a full demo
+organization with users and data across assets, requests, bookings, maintenance, audits,
+notifications, reports, and analytics, run this separately from `backend/`:
+
+```bash
+npx tsx prisma/seedDemo.ts
+```
+
+The demo organization is `Meridian Facilities` with slug `meridian-facilities`. Demo users
+all use the password `Demo1234!`. The Org Admin is `priya.nair@meridian.demo`; additional
+Asset Manager, Department Head, and Employee accounts are listed in
+[projectdetail.md](projectdetail.md). The demo seed is additive and skips itself if that
+organization already exists.
 
 ## What's implemented
 
