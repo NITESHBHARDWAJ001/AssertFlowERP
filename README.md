@@ -64,22 +64,6 @@ Log in with the `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` from `backend/.env`
 Super Admin, create an Organization (this also creates that org's first Org Admin) from
 the Organizations page. Log in as that Org Admin to manage Departments and Employees.
 
-### Load the complete demo tenant
-
-The regular Prisma seed creates only the platform Super Admin. To populate a full demo
-organization with users and data across assets, requests, bookings, maintenance, audits,
-notifications, reports, and analytics, run this separately from `backend/`:
-
-```bash
-npx tsx prisma/seedDemo.ts
-```
-
-The demo organization is `Meridian Facilities` with slug `meridian-facilities`. Demo users
-all use the password `Demo1234!`. The Org Admin is `priya.nair@meridian.demo`; additional
-Asset Manager, Department Head, and Employee accounts are listed in
-[projectdetail.md](projectdetail.md). The demo seed is additive and skips itself if that
-organization already exists.
-
 ## What's implemented
 
 - JWT auth: login, silent refresh-token rotation, logout, forgot/reset password
@@ -88,7 +72,7 @@ organization already exists.
 - Organizations (Super Admin): create (with first Org Admin), list, suspend, activate.
 - Departments & Employees (Org Admin): CRUD, scoped to the caller's organization.
 - **Asset Categories**: org-defined categories with custom metadata field schemas.
-- **Asset Management**: register, auto-generated asset tags, QR code generation, 9-status
+- **Asset Management**: register, auto-generated asset tags, QR code generation, 10-status
   lifecycle state machine (Registered → Available → Allocated/Reserved/Maintenance →
   Returned → Retired → Disposed), role-scoped visibility, search/filter, image and
   document uploads (Cloudinary in production, local disk fallback under
